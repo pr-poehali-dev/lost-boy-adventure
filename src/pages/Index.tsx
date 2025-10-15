@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
+import { useToast } from '@/hooks/use-toast';
 
 interface Position {
   x: number;
@@ -44,6 +45,8 @@ const trees = [
 
 export default function Index() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const { toast } = useToast();
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const [gameState, setGameState] = useState<GameState>({
     playerPos: { x: 50, y: 50 },
@@ -55,6 +58,62 @@ export default function Index() {
     survived: false,
     time: 0,
   });
+
+  const playSound = useCallback((type: 'step' | 'hide' | 'danger' | 'caught' | 'escape') => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    
+    const ctx = audioContextRef.current;
+    const oscillator = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    switch(type) {
+      case 'step':
+        oscillator.frequency.value = 150;
+        oscillator.type = 'square';
+        gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.05);
+        break;
+      case 'hide':
+        oscillator.frequency.value = 200;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.2);
+        break;
+      case 'danger':
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sawtooth';
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.15);
+        break;
+      case 'caught':
+        oscillator.frequency.value = 100;
+        oscillator.type = 'sawtooth';
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.5);
+        break;
+      case 'escape':
+        oscillator.frequency.value = 600;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.4);
+        break;
+    }
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -84,11 +143,28 @@ export default function Index() {
     const gameLoop = setInterval(() => {
       setGameState(prev => {
         const newPlayerPos = { ...prev.playerPos };
+        let hasMoved = false;
 
-        if (keys.has('w') || keys.has('ц')) newPlayerPos.y = Math.max(0, newPlayerPos.y - MOVE_SPEED);
-        if (keys.has('s') || keys.has('ы')) newPlayerPos.y = Math.min(CANVAS_HEIGHT - PLAYER_SIZE, newPlayerPos.y + MOVE_SPEED);
-        if (keys.has('a') || keys.has('ф')) newPlayerPos.x = Math.max(0, newPlayerPos.x - MOVE_SPEED);
-        if (keys.has('d') || keys.has('в')) newPlayerPos.x = Math.min(CANVAS_WIDTH - PLAYER_SIZE, newPlayerPos.x + MOVE_SPEED);
+        if (keys.has('w') || keys.has('ц')) {
+          newPlayerPos.y = Math.max(0, newPlayerPos.y - MOVE_SPEED);
+          hasMoved = true;
+        }
+        if (keys.has('s') || keys.has('ы')) {
+          newPlayerPos.y = Math.min(CANVAS_HEIGHT - PLAYER_SIZE, newPlayerPos.y + MOVE_SPEED);
+          hasMoved = true;
+        }
+        if (keys.has('a') || keys.has('ф')) {
+          newPlayerPos.x = Math.max(0, newPlayerPos.x - MOVE_SPEED);
+          hasMoved = true;
+        }
+        if (keys.has('d') || keys.has('в')) {
+          newPlayerPos.x = Math.min(CANVAS_WIDTH - PLAYER_SIZE, newPlayerPos.x + MOVE_SPEED);
+          hasMoved = true;
+        }
+
+        if (hasMoved && Math.random() > 0.7) {
+          playSound('step');
+        }
 
         const nearTree = trees.find(tree => {
           const dx = newPlayerPos.x + PLAYER_SIZE / 2 - tree.x;
@@ -97,6 +173,10 @@ export default function Index() {
         });
 
         const hiddenBehindTree = !!nearTree;
+        
+        if (hiddenBehindTree && !prev.hiddenBehindTree) {
+          playSound('hide');
+        }
 
         const newKeeperPos = { ...prev.forestKeeperPos };
         const dx = newPlayerPos.x - newKeeperPos.x;
@@ -111,12 +191,23 @@ export default function Index() {
         let newDetectionLevel = prev.detectionLevel;
         if (distance < DETECTION_RANGE && !hiddenBehindTree) {
           newDetectionLevel = Math.min(100, newDetectionLevel + 2);
+          if (newDetectionLevel > 70 && prev.detectionLevel <= 70) {
+            playSound('danger');
+          }
         } else {
           newDetectionLevel = Math.max(0, newDetectionLevel - 1);
         }
 
         const gameOver = newDetectionLevel >= 100 || distance < 40;
         const survived = prev.time >= 60 && !gameOver;
+        
+        if (gameOver && !prev.gameOver) {
+          if (survived) {
+            playSound('escape');
+          } else {
+            playSound('caught');
+          }
+        }
 
         return {
           ...prev,
@@ -132,7 +223,7 @@ export default function Index() {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameState.gameStarted, gameState.gameOver, keys]);
+  }, [gameState.gameStarted, gameState.gameOver, keys, playSound]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -209,6 +300,10 @@ export default function Index() {
   }, [gameState]);
 
   const startGame = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    
     setGameState({
       playerPos: { x: 50, y: 50 },
       forestKeeperPos: { x: 700, y: 500 },
@@ -218,6 +313,12 @@ export default function Index() {
       gameOver: false,
       survived: false,
       time: 0,
+    });
+    
+    toast({
+      title: "🎮 Игра началась!",
+      description: "Прячься за деревьями от лесника",
+      duration: 2000,
     });
   };
 
