@@ -10,6 +10,9 @@ interface Position {
   y: number;
 }
 
+type Difficulty = 'easy' | 'normal' | 'hard' | 'nightmare';
+type GameMode = 'day' | 'night';
+
 interface GameState {
   playerPos: Position;
   forestKeeperPos: Position;
@@ -19,6 +22,8 @@ interface GameState {
   gameOver: boolean;
   survived: boolean;
   time: number;
+  difficulty: Difficulty;
+  mode: GameMode;
 }
 
 const CANVAS_WIDTH = 800;
@@ -26,10 +31,17 @@ const CANVAS_HEIGHT = 600;
 const PLAYER_SIZE = 20;
 const KEEPER_SIZE = 24;
 const TREE_SIZE = 40;
-const MOVE_SPEED = 3;
-const KEEPER_SPEED = 1.5;
-const DETECTION_RANGE = 150;
+const BASE_MOVE_SPEED = 3;
+const BASE_KEEPER_SPEED = 1.5;
+const BASE_DETECTION_RANGE = 150;
 const TREE_HIDE_RANGE = 30;
+
+const DIFFICULTY_SETTINGS = {
+  easy: { keeperSpeed: 1.0, detectionRate: 1, surviveTime: 45, visionRadius: 250 },
+  normal: { keeperSpeed: 1.5, detectionRate: 2, surviveTime: 60, visionRadius: 200 },
+  hard: { keeperSpeed: 2.0, detectionRate: 3, surviveTime: 75, visionRadius: 150 },
+  nightmare: { keeperSpeed: 2.5, detectionRate: 4, surviveTime: 90, visionRadius: 120 },
+};
 
 const trees = [
   { x: 150, y: 100 },
@@ -48,6 +60,8 @@ export default function Index() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const { toast } = useToast();
   const [keys, setKeys] = useState<Set<string>>(new Set());
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [gameMode, setGameMode] = useState<GameMode>('day');
   const [gameState, setGameState] = useState<GameState>({
     playerPos: { x: 50, y: 50 },
     forestKeeperPos: { x: 700, y: 500 },
@@ -57,6 +71,8 @@ export default function Index() {
     gameOver: false,
     survived: false,
     time: 0,
+    difficulty: 'normal',
+    mode: 'day',
   });
 
   const playSound = useCallback((type: 'step' | 'hide' | 'danger' | 'caught' | 'escape') => {
@@ -142,23 +158,24 @@ export default function Index() {
 
     const gameLoop = setInterval(() => {
       setGameState(prev => {
+        const settings = DIFFICULTY_SETTINGS[prev.difficulty];
         const newPlayerPos = { ...prev.playerPos };
         let hasMoved = false;
 
         if (keys.has('w') || keys.has('ц')) {
-          newPlayerPos.y = Math.max(0, newPlayerPos.y - MOVE_SPEED);
+          newPlayerPos.y = Math.max(0, newPlayerPos.y - BASE_MOVE_SPEED);
           hasMoved = true;
         }
         if (keys.has('s') || keys.has('ы')) {
-          newPlayerPos.y = Math.min(CANVAS_HEIGHT - PLAYER_SIZE, newPlayerPos.y + MOVE_SPEED);
+          newPlayerPos.y = Math.min(CANVAS_HEIGHT - PLAYER_SIZE, newPlayerPos.y + BASE_MOVE_SPEED);
           hasMoved = true;
         }
         if (keys.has('a') || keys.has('ф')) {
-          newPlayerPos.x = Math.max(0, newPlayerPos.x - MOVE_SPEED);
+          newPlayerPos.x = Math.max(0, newPlayerPos.x - BASE_MOVE_SPEED);
           hasMoved = true;
         }
         if (keys.has('d') || keys.has('в')) {
-          newPlayerPos.x = Math.min(CANVAS_WIDTH - PLAYER_SIZE, newPlayerPos.x + MOVE_SPEED);
+          newPlayerPos.x = Math.min(CANVAS_WIDTH - PLAYER_SIZE, newPlayerPos.x + BASE_MOVE_SPEED);
           hasMoved = true;
         }
 
@@ -184,13 +201,13 @@ export default function Index() {
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (!hiddenBehindTree && distance > 50) {
-          newKeeperPos.x += (dx / distance) * KEEPER_SPEED;
-          newKeeperPos.y += (dy / distance) * KEEPER_SPEED;
+          newKeeperPos.x += (dx / distance) * settings.keeperSpeed;
+          newKeeperPos.y += (dy / distance) * settings.keeperSpeed;
         }
 
         let newDetectionLevel = prev.detectionLevel;
-        if (distance < DETECTION_RANGE && !hiddenBehindTree) {
-          newDetectionLevel = Math.min(100, newDetectionLevel + 2);
+        if (distance < BASE_DETECTION_RANGE && !hiddenBehindTree) {
+          newDetectionLevel = Math.min(100, newDetectionLevel + settings.detectionRate);
           if (newDetectionLevel > 70 && prev.detectionLevel <= 70) {
             playSound('danger');
           }
@@ -199,7 +216,7 @@ export default function Index() {
         }
 
         const gameOver = newDetectionLevel >= 100 || distance < 40;
-        const survived = prev.time >= 60 && !gameOver;
+        const survived = prev.time >= settings.surviveTime && !gameOver;
         
         if (gameOver && !prev.gameOver) {
           if (survived) {
@@ -233,22 +250,41 @@ export default function Index() {
     if (!ctx) return;
 
     ctx.imageSmoothingEnabled = false;
+    
+    const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
+    const isNightMode = gameState.mode === 'night';
 
-    ctx.fillStyle = '#1A1A1A';
+    ctx.fillStyle = isNightMode ? '#0a0a0a' : '#1A1A1A';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    const gradient = ctx.createRadialGradient(
-      gameState.playerPos.x + PLAYER_SIZE / 2,
-      gameState.playerPos.y + PLAYER_SIZE / 2,
-      0,
-      gameState.playerPos.x + PLAYER_SIZE / 2,
-      gameState.playerPos.y + PLAYER_SIZE / 2,
-      200
-    );
-    gradient.addColorStop(0, 'rgba(50, 50, 50, 0.3)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    if (isNightMode) {
+      const visionGradient = ctx.createRadialGradient(
+        gameState.playerPos.x + PLAYER_SIZE / 2,
+        gameState.playerPos.y + PLAYER_SIZE / 2,
+        0,
+        gameState.playerPos.x + PLAYER_SIZE / 2,
+        gameState.playerPos.y + PLAYER_SIZE / 2,
+        settings.visionRadius
+      );
+      visionGradient.addColorStop(0, 'rgba(26, 26, 26, 0)');
+      visionGradient.addColorStop(0.6, 'rgba(10, 10, 10, 0.7)');
+      visionGradient.addColorStop(1, 'rgba(0, 0, 0, 1)');
+      ctx.fillStyle = visionGradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    } else {
+      const gradient = ctx.createRadialGradient(
+        gameState.playerPos.x + PLAYER_SIZE / 2,
+        gameState.playerPos.y + PLAYER_SIZE / 2,
+        0,
+        gameState.playerPos.x + PLAYER_SIZE / 2,
+        gameState.playerPos.y + PLAYER_SIZE / 2,
+        200
+      );
+      gradient.addColorStop(0, 'rgba(50, 50, 50, 0.3)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.8)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
 
     trees.forEach(tree => {
       ctx.fillStyle = '#2C1810';
@@ -313,12 +349,23 @@ export default function Index() {
       gameOver: false,
       survived: false,
       time: 0,
+      difficulty,
+      mode: gameMode,
     });
     
+    const settings = DIFFICULTY_SETTINGS[difficulty];
+    const modeText = gameMode === 'night' ? '🌙 Ночь' : '☀️ День';
+    const diffText = {
+      easy: '🟢 Легко',
+      normal: '🟡 Нормально',
+      hard: '🟠 Сложно',
+      nightmare: '🔴 Кошмар'
+    }[difficulty];
+    
     toast({
-      title: "🎮 Игра началась!",
-      description: "Прячься за деревьями от лесника",
-      duration: 2000,
+      title: `🎮 Игра началась! ${modeText}`,
+      description: `${diffText} • Выживи ${settings.surviveTime}с`,
+      duration: 3000,
     });
   };
 
@@ -334,35 +381,79 @@ export default function Index() {
 
         {!gameState.gameStarted ? (
           <Card className="p-8 bg-[#2C1810] border-4 border-[#8B0000] space-y-6">
-            <div className="space-y-4 text-white">
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-20 bg-[#1A1A1A] flex items-center justify-center border-2 border-[#8B0000]">
-                  <Icon name="TreePine" size={40} className="text-[#1A4D1A]" />
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-white font-bold text-sm">СЛОЖНОСТЬ</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['easy', 'normal', 'hard', 'nightmare'] as Difficulty[]).map((diff) => (
+                      <Button
+                        key={diff}
+                        onClick={() => setDifficulty(diff)}
+                        variant={difficulty === diff ? 'default' : 'outline'}
+                        className={`text-xs font-bold ${
+                          difficulty === diff 
+                            ? 'bg-[#8B0000] hover:bg-[#6B0000] text-white' 
+                            : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'
+                        }`}
+                      >
+                        {diff === 'easy' && '🟢 Легко'}
+                        {diff === 'normal' && '🟡 Нормал'}
+                        {diff === 'hard' && '🟠 Сложно'}
+                        {diff === 'nightmare' && '🔴 Кошмар'}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2">ПРЯТКИ В ЛЕСУ</h3>
-                  <p className="text-gray-300">Прячься за деревьями, чтобы лесник тебя не заметил</p>
+
+                <div className="space-y-2">
+                  <label className="text-white font-bold text-sm">РЕЖИМ</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => setGameMode('day')}
+                      variant={gameMode === 'day' ? 'default' : 'outline'}
+                      className={`text-sm font-bold ${
+                        gameMode === 'day'
+                          ? 'bg-[#8B0000] hover:bg-[#6B0000] text-white'
+                          : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'
+                      }`}
+                    >
+                      ☀️ День
+                    </Button>
+                    <Button
+                      onClick={() => setGameMode('night')}
+                      variant={gameMode === 'night' ? 'default' : 'outline'}
+                      className={`text-sm font-bold ${
+                        gameMode === 'night'
+                          ? 'bg-[#8B0000] hover:bg-[#6B0000] text-white'
+                          : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'
+                      }`}
+                    >
+                      🌙 Ночь
+                    </Button>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-20 bg-[#1A1A1A] flex items-center justify-center border-2 border-[#8B0000]">
-                  <Icon name="Eye" size={40} className="text-[#8B0000]" />
+              <div className="bg-[#1A1A1A] p-4 border-2 border-[#8B0000] text-white text-sm space-y-2">
+                <div className="flex justify-between">
+                  <span>Скорость лесника:</span>
+                  <span className="font-bold">{DIFFICULTY_SETTINGS[difficulty].keeperSpeed}x</span>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2">ИЗБЕГАЙ ОБНАРУЖЕНИЯ</h3>
-                  <p className="text-gray-300">Следи за индикатором опасности</p>
+                <div className="flex justify-between">
+                  <span>Обнаружение:</span>
+                  <span className="font-bold">{DIFFICULTY_SETTINGS[difficulty].detectionRate}x</span>
                 </div>
-              </div>
-
-              <div className="flex items-start gap-4">
-                <div className="w-20 h-20 bg-[#1A1A1A] flex items-center justify-center border-2 border-[#8B0000]">
-                  <Icon name="Clock" size={40} className="text-white" />
+                <div className="flex justify-between">
+                  <span>Время выживания:</span>
+                  <span className="font-bold">{DIFFICULTY_SETTINGS[difficulty].surviveTime}с</span>
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold mb-2">ПРОДЕРЖИСЬ 60 СЕКУНД</h3>
-                  <p className="text-gray-300">Выживи минуту, чтобы победить</p>
-                </div>
+                {gameMode === 'night' && (
+                  <div className="flex justify-between text-yellow-400">
+                    <span>Видимость:</span>
+                    <span className="font-bold">Ограничена</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -375,7 +466,7 @@ export default function Index() {
               onClick={startGame}
               className="w-full h-16 text-2xl font-bold bg-[#8B0000] hover:bg-[#6B0000] border-4 border-black"
             >
-              PLAY
+              НАЧАТЬ ИГРУ
             </Button>
           </Card>
         ) : (
@@ -404,10 +495,18 @@ export default function Index() {
                 height={CANVAS_HEIGHT}
                 className="w-full border-4 border-[#8B0000] bg-[#1A1A1A] pixel-art"
               />
-              <div className="absolute top-4 right-4 bg-black/80 px-4 py-2 border-2 border-[#8B0000]">
+              <div className="absolute top-4 right-4 bg-black/80 px-4 py-2 border-2 border-[#8B0000] space-y-1">
                 <p className="text-white font-bold text-xl">
                   <Icon name="Clock" size={20} className="inline mr-2" />
-                  {Math.floor(gameState.time)}s
+                  {Math.floor(gameState.time)}s / {DIFFICULTY_SETTINGS[gameState.difficulty].surviveTime}s
+                </p>
+                <p className="text-xs text-gray-400 text-center">
+                  {gameState.mode === 'night' ? '🌙 Ночь' : '☀️ День'} • {
+                    gameState.difficulty === 'easy' ? '🟢 Легко' :
+                    gameState.difficulty === 'normal' ? '🟡 Нормал' :
+                    gameState.difficulty === 'hard' ? '🟠 Сложно' :
+                    '🔴 Кошмар'
+                  }
                 </p>
               </div>
             </div>
