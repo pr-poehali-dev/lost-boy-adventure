@@ -26,6 +26,36 @@ interface GameState {
   mode: GameMode;
 }
 
+interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  condition: (stats: PlayerStats) => boolean;
+}
+
+interface PlayerStats {
+  gamesPlayed: number;
+  gamesWon: number;
+  totalTime: number;
+  bestTime: number;
+  easyWins: number;
+  normalWins: number;
+  hardWins: number;
+  nightmareWins: number;
+  nightWins: number;
+  perfectRuns: number; // Победа без обнаружения
+}
+
+interface GameRecord {
+  difficulty: Difficulty;
+  mode: GameMode;
+  time: number;
+  survived: boolean;
+  date: string;
+}
+
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
 const PLAYER_SIZE = 20;
@@ -55,6 +85,21 @@ const trees = [
   { x: 350, y: 450 },
 ];
 
+const ACHIEVEMENTS: Achievement[] = [
+  { id: 'first_win', title: '🎉 Первая победа', description: 'Выиграй первую игру', icon: '🏆', unlocked: false, condition: (s) => s.gamesWon >= 1 },
+  { id: 'veteran', title: '🎖️ Ветеран', description: 'Сыграй 10 игр', icon: '🎮', unlocked: false, condition: (s) => s.gamesPlayed >= 10 },
+  { id: 'master', title: '👑 Мастер', description: 'Выиграй 5 игр', icon: '⭐', unlocked: false, condition: (s) => s.gamesWon >= 5 },
+  { id: 'speedrunner', title: '⚡ Спидраннер', description: 'Выживи за 45 секунд', icon: '🏃', unlocked: false, condition: (s) => s.bestTime > 0 && s.bestTime <= 45 },
+  { id: 'survivor', title: '💪 Выживальщик', description: 'Протяни 90 секунд', icon: '🛡️', unlocked: false, condition: (s) => s.bestTime >= 90 },
+  { id: 'easy_master', title: '🟢 Новичок', description: 'Победи на лёгком', icon: '🌟', unlocked: false, condition: (s) => s.easyWins >= 1 },
+  { id: 'normal_master', title: '🟡 Опытный', description: 'Победи на нормальном', icon: '💫', unlocked: false, condition: (s) => s.normalWins >= 1 },
+  { id: 'hard_master', title: '🟠 Профи', description: 'Победи на сложном', icon: '✨', unlocked: false, condition: (s) => s.hardWins >= 1 },
+  { id: 'nightmare_master', title: '🔴 Легенда', description: 'Победи на кошмаре', icon: '🔥', unlocked: false, condition: (s) => s.nightmareWins >= 1 },
+  { id: 'night_owl', title: '🦉 Ночная сова', description: 'Победи в ночи', icon: '🌙', unlocked: false, condition: (s) => s.nightWins >= 1 },
+  { id: 'ghost', title: '👻 Призрак', description: 'Победи не будучи замеченным', icon: '🥷', unlocked: false, condition: (s) => s.perfectRuns >= 1 },
+  { id: 'unstoppable', title: '🚀 Неудержимый', description: 'Победи 3 раза подряд на сложном+', icon: '🎯', unlocked: false, condition: (s) => s.hardWins + s.nightmareWins >= 3 },
+];
+
 export default function Index() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -62,6 +107,31 @@ export default function Index() {
   const [keys, setKeys] = useState<Set<string>>(new Set());
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [gameMode, setGameMode] = useState<GameMode>('day');
+  const [showStats, setShowStats] = useState(false);
+  const [maxDetectionReached, setMaxDetectionReached] = useState(0);
+  const [stats, setStats] = useState<PlayerStats>(() => {
+    const saved = localStorage.getItem('dimaForestStats');
+    return saved ? JSON.parse(saved) : {
+      gamesPlayed: 0,
+      gamesWon: 0,
+      totalTime: 0,
+      bestTime: 0,
+      easyWins: 0,
+      normalWins: 0,
+      hardWins: 0,
+      nightmareWins: 0,
+      nightWins: 0,
+      perfectRuns: 0,
+    };
+  });
+  const [achievements, setAchievements] = useState<Achievement[]>(() => {
+    const saved = localStorage.getItem('dimaForestAchievements');
+    if (saved) {
+      const savedAch = JSON.parse(saved);
+      return ACHIEVEMENTS.map(a => ({ ...a, unlocked: savedAch[a.id] || false }));
+    }
+    return ACHIEVEMENTS;
+  });
   const [gameState, setGameState] = useState<GameState>({
     playerPos: { x: 50, y: 50 },
     forestKeeperPos: { x: 700, y: 500 },
@@ -215,14 +285,18 @@ export default function Index() {
           newDetectionLevel = Math.max(0, newDetectionLevel - 1);
         }
 
+        setMaxDetectionReached(prevMax => Math.max(prevMax, newDetectionLevel));
+
         const gameOver = newDetectionLevel >= 100 || distance < 40;
         const survived = prev.time >= settings.surviveTime && !gameOver;
         
         if (gameOver && !prev.gameOver) {
           if (survived) {
             playSound('escape');
+            saveGameResult(true, prev.time, maxDetectionReached);
           } else {
             playSound('caught');
+            saveGameResult(false, prev.time, maxDetectionReached);
           }
         }
 
@@ -240,7 +314,7 @@ export default function Index() {
     }, 50);
 
     return () => clearInterval(gameLoop);
-  }, [gameState.gameStarted, gameState.gameOver, keys, playSound]);
+  }, [gameState.gameStarted, gameState.gameOver, keys, playSound, saveGameResult, maxDetectionReached]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -335,11 +409,60 @@ export default function Index() {
 
   }, [gameState]);
 
+  const checkAchievements = useCallback((newStats: PlayerStats) => {
+    const unlockedAchievements: Achievement[] = [];
+    
+    setAchievements(prev => {
+      const updated = prev.map(ach => {
+        if (!ach.unlocked && ach.condition(newStats)) {
+          unlockedAchievements.push(ach);
+          return { ...ach, unlocked: true };
+        }
+        return ach;
+      });
+      
+      const savedAch: Record<string, boolean> = {};
+      updated.forEach(a => { savedAch[a.id] = a.unlocked; });
+      localStorage.setItem('dimaForestAchievements', JSON.stringify(savedAch));
+      
+      return updated;
+    });
+    
+    unlockedAchievements.forEach(ach => {
+      toast({
+        title: `🏆 Достижение разблокировано!`,
+        description: `${ach.icon} ${ach.title}: ${ach.description}`,
+        duration: 5000,
+      });
+    });
+  }, [toast]);
+
+  const saveGameResult = useCallback((survived: boolean, time: number, maxDetection: number) => {
+    const newStats: PlayerStats = {
+      gamesPlayed: stats.gamesPlayed + 1,
+      gamesWon: survived ? stats.gamesWon + 1 : stats.gamesWon,
+      totalTime: stats.totalTime + time,
+      bestTime: survived && (stats.bestTime === 0 || time > stats.bestTime) ? time : stats.bestTime,
+      easyWins: survived && difficulty === 'easy' ? stats.easyWins + 1 : stats.easyWins,
+      normalWins: survived && difficulty === 'normal' ? stats.normalWins + 1 : stats.normalWins,
+      hardWins: survived && difficulty === 'hard' ? stats.hardWins + 1 : stats.hardWins,
+      nightmareWins: survived && difficulty === 'nightmare' ? stats.nightmareWins + 1 : stats.nightmareWins,
+      nightWins: survived && gameMode === 'night' ? stats.nightWins + 1 : stats.nightWins,
+      perfectRuns: survived && maxDetection < 50 ? stats.perfectRuns + 1 : stats.perfectRuns,
+    };
+    
+    setStats(newStats);
+    localStorage.setItem('dimaForestStats', JSON.stringify(newStats));
+    
+    checkAchievements(newStats);
+  }, [stats, difficulty, gameMode, checkAchievements]);
+
   const startGame = () => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     
+    setMaxDetectionReached(0);
     setGameState({
       playerPos: { x: 50, y: 50 },
       forestKeeperPos: { x: 700, y: 500 },
@@ -462,12 +585,110 @@ export default function Index() {
               <p className="text-gray-300 text-center">W A S D или Ц Ф Ы В — движение</p>
             </div>
 
-            <Button 
-              onClick={startGame}
-              className="w-full h-16 text-2xl font-bold bg-[#8B0000] hover:bg-[#6B0000] border-4 border-black"
-            >
-              НАЧАТЬ ИГРУ
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                onClick={startGame}
+                className="h-16 text-2xl font-bold bg-[#8B0000] hover:bg-[#6B0000] border-4 border-black"
+              >
+                НАЧАТЬ ИГРУ
+              </Button>
+              <Button 
+                onClick={() => setShowStats(!showStats)}
+                variant="outline"
+                className="h-16 text-xl font-bold bg-[#1A1A1A] hover:bg-[#2C1810] text-white border-4 border-[#8B0000]"
+              >
+                {showStats ? 'НАЗАД' : '📊 СТАТИСТИКА'}
+              </Button>
+            </div>
+
+            {showStats && (
+              <div className="space-y-4">
+                <Card className="p-6 bg-[#1A1A1A] border-2 border-[#8B0000]">
+                  <h3 className="text-2xl font-bold text-white mb-4 text-center">📊 СТАТИСТИКА</h3>
+                  <div className="grid grid-cols-2 gap-4 text-white">
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-[#8B0000]">{stats.gamesPlayed}</p>
+                      <p className="text-sm text-gray-400">Игр сыграно</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-green-400">{stats.gamesWon}</p>
+                      <p className="text-sm text-gray-400">Побед</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-yellow-400">{stats.bestTime > 0 ? Math.floor(stats.bestTime) : 0}с</p>
+                      <p className="text-sm text-gray-400">Лучшее время</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-3xl font-bold text-purple-400">{stats.perfectRuns}</p>
+                      <p className="text-sm text-gray-400">Идеальных побег</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-2">
+                    <p className="text-white font-bold text-center mb-2">Победы по сложности</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
+                        <p className="text-xl font-bold text-green-400">{stats.easyWins}</p>
+                        <p className="text-xs text-gray-400">🟢 Легко</p>
+                      </div>
+                      <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
+                        <p className="text-xl font-bold text-yellow-400">{stats.normalWins}</p>
+                        <p className="text-xs text-gray-400">🟡 Нормал</p>
+                      </div>
+                      <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
+                        <p className="text-xl font-bold text-orange-400">{stats.hardWins}</p>
+                        <p className="text-xs text-gray-400">🟠 Сложно</p>
+                      </div>
+                      <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
+                        <p className="text-xl font-bold text-red-400">{stats.nightmareWins}</p>
+                        <p className="text-xs text-gray-400">🔴 Кошмар</p>
+                      </div>
+                    </div>
+                    <div className="text-center bg-[#2C1810] p-3 border border-[#8B0000] mt-2">
+                      <p className="text-2xl font-bold text-blue-400">{stats.nightWins}</p>
+                      <p className="text-sm text-gray-400">🌙 Побед в ночи</p>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-6 bg-[#1A1A1A] border-2 border-[#8B0000]">
+                  <h3 className="text-2xl font-bold text-white mb-4 text-center">🏆 ДОСТИЖЕНИЯ</h3>
+                  <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto">
+                    {achievements.map(ach => (
+                      <div 
+                        key={ach.id}
+                        className={`p-3 border-2 flex items-center gap-3 ${
+                          ach.unlocked 
+                            ? 'bg-[#2C1810] border-[#8B0000]' 
+                            : 'bg-[#1A1A1A] border-gray-700 opacity-50'
+                        }`}
+                      >
+                        <div className="text-3xl">{ach.icon}</div>
+                        <div className="flex-1">
+                          <p className={`font-bold ${ach.unlocked ? 'text-white' : 'text-gray-500'}`}>
+                            {ach.title}
+                          </p>
+                          <p className={`text-sm ${ach.unlocked ? 'text-gray-300' : 'text-gray-600'}`}>
+                            {ach.description}
+                          </p>
+                        </div>
+                        {ach.unlocked && (
+                          <div className="text-green-400 text-xl">✓</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 text-center">
+                    <p className="text-white">
+                      <span className="text-2xl font-bold text-[#8B0000]">
+                        {achievements.filter(a => a.unlocked).length}
+                      </span>
+                      <span className="text-gray-400"> / {achievements.length}</span>
+                    </p>
+                  </div>
+                </Card>
+              </div>
+            )}
           </Card>
         ) : (
           <>
