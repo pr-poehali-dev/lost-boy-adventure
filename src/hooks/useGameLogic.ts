@@ -353,11 +353,12 @@ export function useGameLogic() {
 
         setMaxDetectionReached(prevMax => Math.max(prevMax, newDetectionLevel));
 
-        const gameOver = newDetectionLevel >= 100 || distance < 40;
-        const survived = prev.time >= settings.surviveTime && !gameOver;
+        const caught = newDetectionLevel >= 100 || distance < 40;
+        const survived = prev.time >= settings.surviveTime;
+        const gameOver = caught || survived;
         
         if (gameOver && !prev.gameOver) {
-          if (survived) {
+          if (survived && !caught) {
             playSound('escape');
             saveGameResult(true, prev.time, maxDetectionReached);
           } else {
@@ -372,8 +373,8 @@ export function useGameLogic() {
           forestKeeperPos: newKeeperPos,
           hiddenBehindTree,
           detectionLevel: newDetectionLevel,
-          gameOver: gameOver || survived,
-          survived,
+          gameOver,
+          survived: survived && !caught,
           time: prev.time + 0.05,
         };
       });
