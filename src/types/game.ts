@@ -39,6 +39,17 @@ export interface PlayerStats {
   nightmareWins: number;
   nightWins: number;
   perfectRuns: number;
+  currentStreak: number;
+  bestStreak: number;
+}
+
+export interface LeaderboardEntry {
+  playerName: string;
+  difficulty: Difficulty;
+  mode: GameMode;
+  time: number;
+  date: string;
+  score: number;
 }
 
 export interface GameRecord {
@@ -47,6 +58,7 @@ export interface GameRecord {
   time: number;
   survived: boolean;
   date: string;
+  maxDetection: number;
 }
 
 export const CANVAS_WIDTH = 800;

@@ -6,22 +6,22 @@ interface GameMenuProps {
   difficulty: Difficulty;
   gameMode: GameMode;
   isMobile: boolean;
-  showStats: boolean;
+  currentView: 'menu' | 'stats' | 'leaderboard' | 'history';
   onDifficultyChange: (d: Difficulty) => void;
   onGameModeChange: (m: GameMode) => void;
   onStartGame: () => void;
-  onToggleStats: () => void;
+  onViewChange: (view: 'menu' | 'stats' | 'leaderboard' | 'history') => void;
 }
 
 export function GameMenu({ 
   difficulty, 
   gameMode, 
   isMobile, 
-  showStats, 
+  currentView, 
   onDifficultyChange, 
   onGameModeChange, 
   onStartGame,
-  onToggleStats 
+  onViewChange 
 }: GameMenuProps) {
   return (
     <Card className="p-8 bg-[#2C1810] border-4 border-[#8B0000] space-y-6">
@@ -138,19 +138,34 @@ export function GameMenu({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <Button 
+        onClick={onStartGame}
+        className="w-full h-16 text-2xl font-bold bg-[#8B0000] hover:bg-[#6B0000] border-4 border-black"
+      >
+        НАЧАТЬ ИГРУ
+      </Button>
+      
+      <div className="grid grid-cols-3 gap-2">
         <Button 
-          onClick={onStartGame}
-          className="h-16 text-2xl font-bold bg-[#8B0000] hover:bg-[#6B0000] border-4 border-black"
+          onClick={() => onViewChange('stats')}
+          variant="outline"
+          className={`font-bold ${currentView === 'stats' ? 'bg-[#8B0000] text-white' : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'}`}
         >
-          НАЧАТЬ ИГРУ
+          📊 Статы
         </Button>
         <Button 
-          onClick={onToggleStats}
+          onClick={() => onViewChange('leaderboard')}
           variant="outline"
-          className="h-16 text-xl font-bold bg-[#1A1A1A] hover:bg-[#2C1810] text-white border-4 border-[#8B0000]"
+          className={`font-bold ${currentView === 'leaderboard' ? 'bg-[#8B0000] text-white' : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'}`}
         >
-          {showStats ? 'НАЗАД' : '📊 СТАТИСТИКА'}
+          🏆 ТОП
+        </Button>
+        <Button 
+          onClick={() => onViewChange('history')}
+          variant="outline"
+          className={`font-bold ${currentView === 'history' ? 'bg-[#8B0000] text-white' : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'}`}
+        >
+          📜 Игры
         </Button>
       </div>
     </Card>

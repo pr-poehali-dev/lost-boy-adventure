@@ -7,6 +7,8 @@ import {
   GameMode,
   PlayerStats,
   Achievement,
+  GameRecord,
+  LeaderboardEntry,
   ACHIEVEMENTS,
   DIFFICULTY_SETTINGS,
   trees,
@@ -43,8 +45,22 @@ export function useGameLogic() {
       nightmareWins: 0,
       nightWins: 0,
       perfectRuns: 0,
+      currentStreak: 0,
+      bestStreak: 0,
     };
   });
+  
+  const [gameHistory, setGameHistory] = useState<GameRecord[]>(() => {
+    const saved = localStorage.getItem('dimaForestHistory');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>(() => {
+    const saved = localStorage.getItem('dimaForestLeaderboard');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
+  const [pendingScore, setPendingScore] = useState<{time: number, difficulty: Difficulty, mode: GameMode, score: number} | null>(null);
   
   const [achievements, setAchievements] = useState<Achievement[]>(() => {
     const saved = localStorage.getItem('dimaForestAchievements');
@@ -124,8 +140,31 @@ export function useGameLogic() {
     }
   }, []);
 
+  const calculateScore = useCallback((time: number, difficulty: Difficulty, mode: GameMode, maxDetection: number) => {
+    const difficultyMultiplier = { easy: 1, normal: 2, hard: 3, nightmare: 4 }[difficulty];
+    const modeBonus = mode === 'night' ? 1.5 : 1;
+    const stealthBonus = maxDetection < 10 ? 2 : maxDetection < 30 ? 1.5 : 1;
+    return Math.floor(time * 10 * difficultyMultiplier * modeBonus * stealthBonus);
+  }, []);
+
   const saveGameResult = useCallback((won: boolean, time: number, maxDetection: number) => {
+    const record: GameRecord = {
+      difficulty: gameState.difficulty,
+      mode: gameState.mode,
+      time,
+      survived: won,
+      date: new Date().toISOString(),
+      maxDetection,
+    };
+    
+    setGameHistory(prev => {
+      const updated = [record, ...prev];
+      localStorage.setItem('dimaForestHistory', JSON.stringify(updated));
+      return updated;
+    });
+    
     setStats(prev => {
+      const newCurrentStreak = won ? prev.currentStreak + 1 : 0;
       const newStats = {
         ...prev,
         gamesPlayed: prev.gamesPlayed + 1,
@@ -138,9 +177,16 @@ export function useGameLogic() {
         nightmareWins: won && gameState.difficulty === 'nightmare' ? prev.nightmareWins + 1 : prev.nightmareWins,
         nightWins: won && gameState.mode === 'night' ? prev.nightWins + 1 : prev.nightWins,
         perfectRuns: won && maxDetection < 10 ? prev.perfectRuns + 1 : prev.perfectRuns,
+        currentStreak: newCurrentStreak,
+        bestStreak: Math.max(prev.bestStreak, newCurrentStreak),
       };
       
       localStorage.setItem('dimaForestStats', JSON.stringify(newStats));
+      
+      if (won) {
+        const score = calculateScore(time, gameState.difficulty, gameState.mode, maxDetection);
+        setPendingScore({ time, difficulty: gameState.difficulty, mode: gameState.mode, score });
+      }
       
       setAchievements(prev => {
         const updated = prev.map(ach => {
@@ -163,7 +209,42 @@ export function useGameLogic() {
       
       return newStats;
     });
-  }, [gameState.difficulty, gameState.mode, toast]);
+  }, [gameState.difficulty, gameState.mode, toast, calculateScore]);
+  
+  const submitToLeaderboard = useCallback((playerName: string) => {
+    if (!pendingScore) return;
+    
+    const entry: LeaderboardEntry = {
+      playerName,
+      difficulty: pendingScore.difficulty,
+      mode: pendingScore.mode,
+      time: pendingScore.time,
+      date: new Date().toISOString(),
+      score: pendingScore.score,
+    };
+    
+    setLeaderboard(prev => {
+      const updated = [...prev, entry].sort((a, b) => b.score - a.score).slice(0, 100);
+      localStorage.setItem('dimaForestLeaderboard', JSON.stringify(updated));
+      return updated;
+    });
+    
+    setPendingScore(null);
+    toast({
+      title: '🏆 Результат сохранён!',
+      description: `${entry.score} очков в таблице лидеров`,
+      duration: 3000,
+    });
+  }, [pendingScore, toast]);
+  
+  const clearHistory = useCallback(() => {
+    setGameHistory([]);
+    localStorage.removeItem('dimaForestHistory');
+    toast({
+      title: 'История очищена',
+      duration: 2000,
+    });
+  }, [toast]);
 
   const startGame = useCallback(() => {
     setMaxDetectionReached(0);
@@ -344,6 +425,9 @@ export function useGameLogic() {
     showStats,
     stats,
     achievements,
+    gameHistory,
+    leaderboard,
+    pendingScore,
     isMobile,
     touchJoystick,
     setDifficulty,
@@ -353,5 +437,7 @@ export function useGameLogic() {
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
+    submitToLeaderboard,
+    clearHistory,
   };
 }
