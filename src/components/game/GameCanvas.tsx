@@ -148,7 +148,7 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
             </div>
           </div>
           <div 
-            className="absolute pointer-events-none transition-all duration-75"
+            className="absolute pointer-events-none"
             style={{
               left: `${(touchJoystick.current.x / CANVAS_WIDTH) * 100}%`,
               top: `${(touchJoystick.current.y / CANVAS_HEIGHT) * 100}%`,
