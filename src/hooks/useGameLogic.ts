@@ -253,7 +253,7 @@ export function useGameLogic() {
     setGameState({
       playerPos: { x: 50, y: 50 },
       forestKeeperPos: { x: 700, y: 500 },
-      forestKeeperPos2: difficulty === 'hardcore' ? { x: 100, y: 100 } : undefined,
+      forestKeeperPos2: difficulty === 'hardcore' ? { x: 700, y: 50 } : undefined,
       hiddenBehindTree: false,
       detectionLevel: 0,
       gameStarted: true,
