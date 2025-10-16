@@ -297,20 +297,22 @@ export function useGameLogic() {
         const settings = DIFFICULTY_SETTINGS[prev.difficulty];
         const newPlayerPos = { ...prev.playerPos };
         let hasMoved = false;
+        
+        const currentKeys = activeKeysRef.current.size > 0 ? activeKeysRef.current : keys;
 
-        if (keys.has('w') || keys.has('ц') || keys.has('up')) {
+        if (currentKeys.has('w') || currentKeys.has('ц') || currentKeys.has('up')) {
           newPlayerPos.y = Math.max(0, newPlayerPos.y - BASE_MOVE_SPEED);
           hasMoved = true;
         }
-        if (keys.has('s') || keys.has('ы') || keys.has('down')) {
+        if (currentKeys.has('s') || currentKeys.has('ы') || currentKeys.has('down')) {
           newPlayerPos.y = Math.min(CANVAS_HEIGHT - PLAYER_SIZE, newPlayerPos.y + BASE_MOVE_SPEED);
           hasMoved = true;
         }
-        if (keys.has('a') || keys.has('ф') || keys.has('left')) {
+        if (currentKeys.has('a') || currentKeys.has('ф') || currentKeys.has('left')) {
           newPlayerPos.x = Math.max(0, newPlayerPos.x - BASE_MOVE_SPEED);
           hasMoved = true;
         }
-        if (keys.has('d') || keys.has('в') || keys.has('right')) {
+        if (currentKeys.has('d') || currentKeys.has('в') || currentKeys.has('right')) {
           newPlayerPos.x = Math.min(CANVAS_WIDTH - PLAYER_SIZE, newPlayerPos.x + BASE_MOVE_SPEED);
           hasMoved = true;
         }
