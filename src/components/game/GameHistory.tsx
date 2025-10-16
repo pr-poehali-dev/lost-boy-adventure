@@ -13,6 +13,7 @@ const DIFFICULTY_EMOJI: Record<Difficulty, string> = {
   normal: '🟡',
   hard: '🟠',
   nightmare: '🔴',
+  hardcore: '💀',
 };
 
 const MODE_EMOJI: Record<GameMode, string> = {

@@ -78,6 +78,17 @@ export function GameMenu({
             >
               🔴 Кошмар
             </Button>
+            <Button
+              onClick={() => onDifficultyChange('hardcore')}
+              variant={difficulty === 'hardcore' ? 'default' : 'outline'}
+              className={`font-bold col-span-2 ${
+                difficulty === 'hardcore'
+                  ? 'bg-[#8B0000] hover:bg-[#6B0000] text-white'
+                  : 'bg-[#1A1A1A] text-gray-300 border-[#8B0000]'
+              }`}
+            >
+              💀 Хардкор (2 лесника!)
+            </Button>
           </div>
         </div>
 

@@ -66,28 +66,35 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
       }
     });
 
-    const keeperDistanceToPlayer = Math.sqrt(
-      Math.pow(gameState.playerPos.x + PLAYER_SIZE / 2 - gameState.forestKeeperPos.x, 2) +
-      Math.pow(gameState.playerPos.y + PLAYER_SIZE / 2 - gameState.forestKeeperPos.y, 2)
-    );
-    const keeperInVision = !isNightMode || keeperDistanceToPlayer < settings.visionRadius;
+    const drawKeeper = (keeperPos: Position) => {
+      const keeperDistanceToPlayer = Math.sqrt(
+        Math.pow(gameState.playerPos.x + PLAYER_SIZE / 2 - keeperPos.x, 2) +
+        Math.pow(gameState.playerPos.y + PLAYER_SIZE / 2 - keeperPos.y, 2)
+      );
+      const keeperInVision = !isNightMode || keeperDistanceToPlayer < settings.visionRadius;
 
-    if (keeperInVision) {
-      ctx.fillStyle = '#8B0000';
-      ctx.fillRect(
-        gameState.forestKeeperPos.x - KEEPER_SIZE / 2,
-        gameState.forestKeeperPos.y - KEEPER_SIZE / 2,
-        KEEPER_SIZE,
-        KEEPER_SIZE
-      );
-      
-      ctx.fillStyle = '#FFD700';
-      ctx.fillRect(
-        gameState.forestKeeperPos.x - KEEPER_SIZE / 4,
-        gameState.forestKeeperPos.y - KEEPER_SIZE / 2 + 5,
-        KEEPER_SIZE / 2,
-        5
-      );
+      if (keeperInVision) {
+        ctx.fillStyle = '#8B0000';
+        ctx.fillRect(
+          keeperPos.x - KEEPER_SIZE / 2,
+          keeperPos.y - KEEPER_SIZE / 2,
+          KEEPER_SIZE,
+          KEEPER_SIZE
+        );
+        
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(
+          keeperPos.x - KEEPER_SIZE / 4,
+          keeperPos.y - KEEPER_SIZE / 2 + 5,
+          KEEPER_SIZE / 2,
+          5
+        );
+      }
+    };
+
+    drawKeeper(gameState.forestKeeperPos);
+    if (gameState.forestKeeperPos2) {
+      drawKeeper(gameState.forestKeeperPos2);
     }
 
     ctx.fillStyle = gameState.hiddenBehindTree ? '#4CAF50' : '#4169E1';
@@ -129,7 +136,8 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
             gameState.difficulty === 'easy' ? '🟢 Легко' :
             gameState.difficulty === 'normal' ? '🟡 Нормал' :
             gameState.difficulty === 'hard' ? '🟠 Сложно' :
-            '🔴 Кошмар'
+            gameState.difficulty === 'nightmare' ? '🔴 Кошмар' :
+            '💀 Хардкор'
           }
         </p>
       </div>

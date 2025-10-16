@@ -43,6 +43,7 @@ export function useGameLogic() {
       normalWins: 0,
       hardWins: 0,
       nightmareWins: 0,
+      hardcoreWins: 0,
       nightWins: 0,
       perfectRuns: 0,
       currentStreak: 0,
@@ -141,7 +142,7 @@ export function useGameLogic() {
   }, []);
 
   const calculateScore = useCallback((time: number, difficulty: Difficulty, mode: GameMode, maxDetection: number) => {
-    const difficultyMultiplier = { easy: 1, normal: 2, hard: 3, nightmare: 4 }[difficulty];
+    const difficultyMultiplier = { easy: 1, normal: 2, hard: 3, nightmare: 4, hardcore: 5 }[difficulty];
     const modeBonus = mode === 'night' ? 1.5 : 1;
     const stealthBonus = maxDetection < 10 ? 2 : maxDetection < 30 ? 1.5 : 1;
     return Math.floor(time * 10 * difficultyMultiplier * modeBonus * stealthBonus);
@@ -175,6 +176,7 @@ export function useGameLogic() {
         normalWins: won && gameState.difficulty === 'normal' ? prev.normalWins + 1 : prev.normalWins,
         hardWins: won && gameState.difficulty === 'hard' ? prev.hardWins + 1 : prev.hardWins,
         nightmareWins: won && gameState.difficulty === 'nightmare' ? prev.nightmareWins + 1 : prev.nightmareWins,
+        hardcoreWins: won && gameState.difficulty === 'hardcore' ? prev.hardcoreWins + 1 : prev.hardcoreWins,
         nightWins: won && gameState.mode === 'night' ? prev.nightWins + 1 : prev.nightWins,
         perfectRuns: won && maxDetection < 10 ? prev.perfectRuns + 1 : prev.perfectRuns,
         currentStreak: newCurrentStreak,
@@ -251,6 +253,7 @@ export function useGameLogic() {
     setGameState({
       playerPos: { x: 50, y: 50 },
       forestKeeperPos: { x: 700, y: 500 },
+      forestKeeperPos2: difficulty === 'hardcore' ? { x: 100, y: 100 } : undefined,
       hiddenBehindTree: false,
       detectionLevel: 0,
       gameStarted: true,
@@ -343,8 +346,26 @@ export function useGameLogic() {
           newKeeperPos.y += (dy / distance) * settings.keeperSpeed;
         }
 
+        const newKeeperPos2 = prev.forestKeeperPos2 ? { ...prev.forestKeeperPos2 } : undefined;
+        let distance2 = Infinity;
+        if (newKeeperPos2) {
+          const dx2 = newPlayerPos.x - newKeeperPos2.x;
+          const dy2 = newPlayerPos.y - newKeeperPos2.y;
+          distance2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+          if (!hiddenBehindTree && distance2 > 50) {
+            newKeeperPos2.x += (dx2 / distance2) * settings.keeperSpeed;
+            newKeeperPos2.y += (dy2 / distance2) * settings.keeperSpeed;
+          }
+        }
+
         let newDetectionLevel = prev.detectionLevel;
         if (distance < BASE_DETECTION_RANGE && !hiddenBehindTree) {
+          newDetectionLevel = Math.min(100, newDetectionLevel + settings.detectionRate);
+          if (newDetectionLevel > 70 && prev.detectionLevel <= 70) {
+            playSound('danger');
+          }
+        } else if (newKeeperPos2 && distance2 < BASE_DETECTION_RANGE && !hiddenBehindTree) {
           newDetectionLevel = Math.min(100, newDetectionLevel + settings.detectionRate);
           if (newDetectionLevel > 70 && prev.detectionLevel <= 70) {
             playSound('danger');
@@ -355,7 +376,7 @@ export function useGameLogic() {
 
         setMaxDetectionReached(prevMax => Math.max(prevMax, newDetectionLevel));
 
-        const caught = newDetectionLevel >= 100 || distance < 40;
+        const caught = newDetectionLevel >= 100 || distance < 40 || (newKeeperPos2 && distance2 < 40);
         const survived = prev.time >= settings.surviveTime;
         const gameOver = caught || survived;
         
@@ -373,6 +394,7 @@ export function useGameLogic() {
           ...prev,
           playerPos: newPlayerPos,
           forestKeeperPos: newKeeperPos,
+          forestKeeperPos2: newKeeperPos2,
           hiddenBehindTree,
           detectionLevel: newDetectionLevel,
           gameOver,

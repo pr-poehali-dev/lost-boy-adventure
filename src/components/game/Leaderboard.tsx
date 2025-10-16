@@ -15,6 +15,7 @@ const DIFFICULTY_EMOJI: Record<Difficulty, string> = {
   normal: '🟡',
   hard: '🟠',
   nightmare: '🔴',
+  hardcore: '💀',
 };
 
 const MODE_EMOJI: Record<GameMode, string> = {
@@ -106,6 +107,14 @@ export function Leaderboard({ entries, onSubmitScore, canSubmit = false }: Leade
           className={filter === 'nightmare' ? 'bg-[#8B0000]' : 'bg-[#2C1810] border-[#8B0000]'}
         >
           🔴
+        </Button>
+        <Button
+          onClick={() => setFilter('hardcore')}
+          variant={filter === 'hardcore' ? 'default' : 'outline'}
+          size="sm"
+          className={filter === 'hardcore' ? 'bg-[#8B0000]' : 'bg-[#2C1810] border-[#8B0000]'}
+        >
+          💀
         </Button>
       </div>
 

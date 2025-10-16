@@ -32,7 +32,7 @@ export function GameStats({ stats, achievements }: GameStatsProps) {
 
         <div className="mt-6 space-y-2">
           <p className="text-white font-bold text-center mb-2">Победы по сложности</p>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
               <p className="text-xl font-bold text-green-400">{stats.easyWins}</p>
               <p className="text-xs text-gray-400">🟢 Легко</p>
@@ -49,10 +49,14 @@ export function GameStats({ stats, achievements }: GameStatsProps) {
               <p className="text-xl font-bold text-red-400">{stats.nightmareWins}</p>
               <p className="text-xs text-gray-400">🔴 Кошмар</p>
             </div>
-          </div>
-          <div className="text-center bg-[#2C1810] p-3 border border-[#8B0000] mt-2">
-            <p className="text-2xl font-bold text-blue-400">{stats.nightWins}</p>
-            <p className="text-sm text-gray-400">🌙 Побед в ночи</p>
+            <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
+              <p className="text-xl font-bold text-purple-500">{stats.hardcoreWins}</p>
+              <p className="text-xs text-gray-400">💀 Хардкор</p>
+            </div>
+            <div className="text-center bg-[#2C1810] p-2 border border-[#8B0000]">
+              <p className="text-xl font-bold text-blue-400">{stats.nightWins}</p>
+              <p className="text-xs text-gray-400">🌙 Ночь</p>
+            </div>
           </div>
         </div>
       </Card>

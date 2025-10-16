@@ -3,12 +3,13 @@ export interface Position {
   y: number;
 }
 
-export type Difficulty = 'easy' | 'normal' | 'hard' | 'nightmare';
+export type Difficulty = 'easy' | 'normal' | 'hard' | 'nightmare' | 'hardcore';
 export type GameMode = 'day' | 'night';
 
 export interface GameState {
   playerPos: Position;
   forestKeeperPos: Position;
+  forestKeeperPos2?: Position;
   hiddenBehindTree: boolean;
   detectionLevel: number;
   gameStarted: boolean;
@@ -37,6 +38,7 @@ export interface PlayerStats {
   normalWins: number;
   hardWins: number;
   nightmareWins: number;
+  hardcoreWins: number;
   nightWins: number;
   perfectRuns: number;
   currentStreak: number;
@@ -76,6 +78,7 @@ export const DIFFICULTY_SETTINGS = {
   normal: { keeperSpeed: 1.5, detectionRate: 2, surviveTime: 60, visionRadius: 200 },
   hard: { keeperSpeed: 2.0, detectionRate: 3, surviveTime: 75, visionRadius: 150 },
   nightmare: { keeperSpeed: 2.5, detectionRate: 4, surviveTime: 90, visionRadius: 120 },
+  hardcore: { keeperSpeed: 2.2, detectionRate: 3.5, surviveTime: 120, visionRadius: 140 },
 };
 
 export const trees = [
@@ -100,6 +103,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'normal_master', title: '🟡 Опытный', description: 'Победи на нормальном', icon: '💫', unlocked: false, condition: (s) => s.normalWins >= 1 },
   { id: 'hard_master', title: '🟠 Профи', description: 'Победи на сложном', icon: '✨', unlocked: false, condition: (s) => s.hardWins >= 1 },
   { id: 'nightmare_master', title: '🔴 Легенда', description: 'Победи на кошмаре', icon: '🔥', unlocked: false, condition: (s) => s.nightmareWins >= 1 },
+  { id: 'hardcore_master', title: '💀 Безумец', description: 'Победи на хардкоре', icon: '⚡', unlocked: false, condition: (s) => s.hardcoreWins >= 1 },
   { id: 'night_owl', title: '🦉 Ночная сова', description: 'Победи в ночи', icon: '🌙', unlocked: false, condition: (s) => s.nightWins >= 1 },
   { id: 'ghost', title: '👻 Призрак', description: 'Победи не будучи замеченным', icon: '🥷', unlocked: false, condition: (s) => s.perfectRuns >= 1 },
   { id: 'unstoppable', title: '🚀 Неудержимый', description: 'Победи 3 раза подряд на сложном+', icon: '🎯', unlocked: false, condition: (s) => s.hardWins + s.nightmareWins >= 3 },
