@@ -408,13 +408,13 @@ export function useGameLogic() {
     const dy = y - touchJoystick.start.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    if (distance > 15) {
+    if (distance > 12) {
       const newKeys = new Set<string>();
       
-      if (Math.abs(dx) > 10) {
+      if (Math.abs(dx) > 12) {
         newKeys.add(dx > 0 ? 'right' : 'left');
       }
-      if (Math.abs(dy) > 10) {
+      if (Math.abs(dy) > 12) {
         newKeys.add(dy > 0 ? 'down' : 'up');
       }
       
