@@ -5,7 +5,7 @@ import { GameState, Position, CANVAS_WIDTH, CANVAS_HEIGHT, PLAYER_SIZE, KEEPER_S
 interface GameCanvasProps {
   gameState: GameState;
   isMobile: boolean;
-  touchJoystick: Position | null;
+  touchJoystick: {start: Position, current: Position} | null;
   onTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => void;
   onTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => void;
   onTouchEnd: (e: React.TouchEvent<HTMLCanvasElement>) => void;
@@ -134,18 +134,30 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
         </p>
       </div>
       {isMobile && !gameState.gameOver && touchJoystick && (
-        <div 
-          className="absolute pointer-events-none"
-          style={{
-            left: `${(touchJoystick.x / CANVAS_WIDTH) * 100}%`,
-            top: `${(touchJoystick.y / CANVAS_HEIGHT) * 100}%`,
-            transform: 'translate(-50%, -50%)'
-          }}
-        >
-          <div className="w-16 h-16 rounded-full bg-white/30 border-4 border-white/60 flex items-center justify-center">
-            <div className="w-6 h-6 rounded-full bg-white"></div>
+        <>
+          <div 
+            className="absolute pointer-events-none"
+            style={{
+              left: `${(touchJoystick.start.x / CANVAS_WIDTH) * 100}%`,
+              top: `${(touchJoystick.start.y / CANVAS_HEIGHT) * 100}%`,
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <div className="w-24 h-24 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full border-2 border-white/20"></div>
+            </div>
           </div>
-        </div>
+          <div 
+            className="absolute pointer-events-none transition-all duration-75"
+            style={{
+              left: `${(touchJoystick.current.x / CANVAS_WIDTH) * 100}%`,
+              top: `${(touchJoystick.current.y / CANVAS_HEIGHT) * 100}%`,
+              transform: 'translate(-50%, -50%)'
+            }}
+          >
+            <div className="w-12 h-12 rounded-full bg-white/80 border-4 border-[#8B0000] shadow-lg"></div>
+          </div>
+        </>
       )}
     </div>
   );

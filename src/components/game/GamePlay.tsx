@@ -8,7 +8,7 @@ import { GameState, Position } from '@/types/game';
 interface GamePlayProps {
   gameState: GameState;
   isMobile: boolean;
-  touchJoystick: Position | null;
+  touchJoystick: {start: Position, current: Position} | null;
   onTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => void;
   onTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => void;
   onTouchEnd: (e: React.TouchEvent<HTMLCanvasElement>) => void;

@@ -28,9 +28,9 @@ export function useGameLogic() {
   const [gameMode, setGameMode] = useState<GameMode>('day');
   const [showStats, setShowStats] = useState(false);
   const [maxDetectionReached, setMaxDetectionReached] = useState(0);
-  const [touchJoystick, setTouchJoystick] = useState<Position | null>(null);
+  const [touchJoystick, setTouchJoystick] = useState<{start: Position, current: Position} | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const joystickStartRef = useRef<Position | null>(null);
+  const activeKeysRef = useRef<Set<string>>(new Set());
   
   const [stats, setStats] = useState<PlayerStats>(() => {
     const saved = localStorage.getItem('dimaForestStats');
@@ -389,32 +389,47 @@ export function useGameLogic() {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (touch.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
     const y = (touch.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
-    joystickStartRef.current = { x, y };
-    setTouchJoystick({ x, y });
+    const pos = { x, y };
+    setTouchJoystick({ start: pos, current: pos });
   }, [isMobile, gameState.gameOver]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isMobile || !joystickStartRef.current || gameState.gameOver) return;
+    if (!isMobile || !touchJoystick || gameState.gameOver) return;
     e.preventDefault();
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (touch.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
     const y = (touch.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
     
-    const dx = x - joystickStartRef.current.x;
-    const dy = y - joystickStartRef.current.y;
+    setTouchJoystick(prev => prev ? { ...prev, current: { x, y } } : null);
     
-    setKeys(new Set([
-      ...(Math.abs(dx) > 20 ? (dx > 0 ? ['right'] : ['left']) : []),
-      ...(Math.abs(dy) > 20 ? (dy > 0 ? ['down'] : ['up']) : [])
-    ]));
-  }, [isMobile, gameState.gameOver]);
+    const dx = x - touchJoystick.start.x;
+    const dy = y - touchJoystick.start.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance > 15) {
+      const newKeys = new Set<string>();
+      
+      if (Math.abs(dx) > 10) {
+        newKeys.add(dx > 0 ? 'right' : 'left');
+      }
+      if (Math.abs(dy) > 10) {
+        newKeys.add(dy > 0 ? 'down' : 'up');
+      }
+      
+      activeKeysRef.current = newKeys;
+      setKeys(newKeys);
+    } else {
+      activeKeysRef.current = new Set();
+      setKeys(new Set());
+    }
+  }, [isMobile, gameState.gameOver, touchJoystick]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!isMobile) return;
     e.preventDefault();
-    joystickStartRef.current = null;
     setTouchJoystick(null);
+    activeKeysRef.current = new Set();
     setKeys(new Set());
   }, [isMobile]);
 
