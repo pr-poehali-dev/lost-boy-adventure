@@ -109,6 +109,9 @@ export default function Index() {
   const [gameMode, setGameMode] = useState<GameMode>('day');
   const [showStats, setShowStats] = useState(false);
   const [maxDetectionReached, setMaxDetectionReached] = useState(0);
+  const [touchJoystick, setTouchJoystick] = useState<Position | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const joystickStartRef = useRef<Position | null>(null);
   const [stats, setStats] = useState<PlayerStats>(() => {
     const saved = localStorage.getItem('dimaForestStats');
     return saved ? JSON.parse(saved) : {
@@ -202,6 +205,10 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       setKeys(prev => new Set(prev).add(e.key.toLowerCase()));
     };
@@ -232,19 +239,19 @@ export default function Index() {
         const newPlayerPos = { ...prev.playerPos };
         let hasMoved = false;
 
-        if (keys.has('w') || keys.has('ц')) {
+        if (keys.has('w') || keys.has('ц') || keys.has('up')) {
           newPlayerPos.y = Math.max(0, newPlayerPos.y - BASE_MOVE_SPEED);
           hasMoved = true;
         }
-        if (keys.has('s') || keys.has('ы')) {
+        if (keys.has('s') || keys.has('ы') || keys.has('down')) {
           newPlayerPos.y = Math.min(CANVAS_HEIGHT - PLAYER_SIZE, newPlayerPos.y + BASE_MOVE_SPEED);
           hasMoved = true;
         }
-        if (keys.has('a') || keys.has('ф')) {
+        if (keys.has('a') || keys.has('ф') || keys.has('left')) {
           newPlayerPos.x = Math.max(0, newPlayerPos.x - BASE_MOVE_SPEED);
           hasMoved = true;
         }
-        if (keys.has('d') || keys.has('в')) {
+        if (keys.has('d') || keys.has('в') || keys.has('right')) {
           newPlayerPos.x = Math.min(CANVAS_WIDTH - PLAYER_SIZE, newPlayerPos.x + BASE_MOVE_SPEED);
           hasMoved = true;
         }
@@ -582,7 +589,9 @@ export default function Index() {
 
             <div className="bg-[#1A1A1A] p-4 border-2 border-[#8B0000]">
               <p className="text-white text-center mb-2 font-bold">УПРАВЛЕНИЕ</p>
-              <p className="text-gray-300 text-center">W A S D или Ц Ф Ы В — движение</p>
+              <p className="text-gray-300 text-center">
+                {isMobile ? '📱 Сенсорный экран — веди пальцем' : 'W A S D или Ц Ф Ы В — движение'}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -714,7 +723,40 @@ export default function Index() {
                 ref={canvasRef}
                 width={CANVAS_WIDTH}
                 height={CANVAS_HEIGHT}
-                className="w-full border-4 border-[#8B0000] bg-[#1A1A1A] pixel-art"
+                className="w-full border-4 border-[#8B0000] bg-[#1A1A1A] pixel-art touch-none"
+                onTouchStart={(e) => {
+                  if (!isMobile || gameState.gameOver) return;
+                  e.preventDefault();
+                  const touch = e.touches[0];
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = (touch.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+                  const y = (touch.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+                  joystickStartRef.current = { x, y };
+                  setTouchJoystick({ x, y });
+                }}
+                onTouchMove={(e) => {
+                  if (!isMobile || !joystickStartRef.current || gameState.gameOver) return;
+                  e.preventDefault();
+                  const touch = e.touches[0];
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const x = (touch.clientX - rect.left) * (CANVAS_WIDTH / rect.width);
+                  const y = (touch.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
+                  
+                  const dx = x - joystickStartRef.current.x;
+                  const dy = y - joystickStartRef.current.y;
+                  
+                  setKeys(new Set([
+                    ...(Math.abs(dx) > 20 ? (dx > 0 ? ['right'] : ['left']) : []),
+                    ...(Math.abs(dy) > 20 ? (dy > 0 ? ['down'] : ['up']) : [])
+                  ]));
+                }}
+                onTouchEnd={(e) => {
+                  if (!isMobile) return;
+                  e.preventDefault();
+                  joystickStartRef.current = null;
+                  setTouchJoystick(null);
+                  setKeys(new Set());
+                }}
               />
               <div className="absolute top-4 right-4 bg-black/80 px-4 py-2 border-2 border-[#8B0000] space-y-1">
                 <p className="text-white font-bold text-xl">
@@ -730,7 +772,29 @@ export default function Index() {
                   }
                 </p>
               </div>
+              {isMobile && !gameState.gameOver && touchJoystick && (
+                <div 
+                  className="absolute pointer-events-none"
+                  style={{
+                    left: `${(touchJoystick.x / CANVAS_WIDTH) * 100}%`,
+                    top: `${(touchJoystick.y / CANVAS_HEIGHT) * 100}%`,
+                    transform: 'translate(-50%, -50%)'
+                  }}
+                >
+                  <div className="w-16 h-16 rounded-full bg-white/30 border-4 border-white/60 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-white"></div>
+                  </div>
+                </div>
+              )}
             </div>
+            
+            {isMobile && !gameState.gameOver && (
+              <div className="bg-[#1A1A1A] p-3 border-2 border-[#8B0000]">
+                <p className="text-white text-center text-sm">
+                  📱 Нажми и веди пальцем по экрану для управления
+                </p>
+              </div>
+            )}
 
             {gameState.gameOver && (
               <Card className="p-8 bg-[#2C1810] border-4 border-[#8B0000] text-center space-y-4">
