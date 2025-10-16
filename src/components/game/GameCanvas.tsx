@@ -66,7 +66,7 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
       }
     });
 
-    const drawKeeper = (keeperPos: Position) => {
+    const drawKeeper = (keeperPos: Position, isSecondKeeper = false) => {
       const keeperDistanceToPlayer = Math.sqrt(
         Math.pow(gameState.playerPos.x + PLAYER_SIZE / 2 - keeperPos.x, 2) +
         Math.pow(gameState.playerPos.y + PLAYER_SIZE / 2 - keeperPos.y, 2)
@@ -74,7 +74,7 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
       const keeperInVision = !isNightMode || keeperDistanceToPlayer < settings.visionRadius;
 
       if (keeperInVision) {
-        ctx.fillStyle = '#8B0000';
+        ctx.fillStyle = isSecondKeeper ? '#4B0082' : '#8B0000';
         ctx.fillRect(
           keeperPos.x - KEEPER_SIZE / 2,
           keeperPos.y - KEEPER_SIZE / 2,
@@ -82,7 +82,7 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
           KEEPER_SIZE
         );
         
-        ctx.fillStyle = '#FFD700';
+        ctx.fillStyle = isSecondKeeper ? '#9370DB' : '#FFD700';
         ctx.fillRect(
           keeperPos.x - KEEPER_SIZE / 4,
           keeperPos.y - KEEPER_SIZE / 2 + 5,
@@ -92,9 +92,9 @@ export function GameCanvas({ gameState, isMobile, touchJoystick, onTouchStart, o
       }
     };
 
-    drawKeeper(gameState.forestKeeperPos);
+    drawKeeper(gameState.forestKeeperPos, false);
     if (gameState.forestKeeperPos2) {
-      drawKeeper(gameState.forestKeeperPos2);
+      drawKeeper(gameState.forestKeeperPos2, true);
     }
 
     ctx.fillStyle = gameState.hiddenBehindTree ? '#4CAF50' : '#4169E1';
