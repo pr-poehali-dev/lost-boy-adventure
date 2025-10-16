@@ -408,7 +408,7 @@ export function useGameLogic() {
   }, [gameState.gameStarted, gameState.gameOver, keys, playSound, saveGameResult, maxDetectionReached]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isMobile || gameState.gameOver) return;
+    if (!isMobile) return;
     e.preventDefault();
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
@@ -416,10 +416,10 @@ export function useGameLogic() {
     const y = (touch.clientY - rect.top) * (CANVAS_HEIGHT / rect.height);
     const pos = { x, y };
     setTouchJoystick({ start: pos, current: pos });
-  }, [isMobile, gameState.gameOver]);
+  }, [isMobile]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isMobile || !touchJoystick || gameState.gameOver) return;
+    if (!isMobile || !touchJoystick) return;
     e.preventDefault();
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
@@ -448,7 +448,7 @@ export function useGameLogic() {
       activeKeysRef.current = new Set();
       setKeys(new Set());
     }
-  }, [isMobile, gameState.gameOver, touchJoystick]);
+  }, [isMobile, touchJoystick]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
     if (!isMobile) return;
